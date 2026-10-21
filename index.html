@@ -21,27 +21,32 @@
       <span class="pill-live" id="estado-dados" hidden></span>
     </div>
     <h1>Radar de Onboarding CS</h1>
-    <p class="take" id="take">Carregue a cópia da planilha de matrículas para ver onde os alunos travam no onboarding, quem precisa de contato hoje e quem pode voltar depois de cancelar.</p>
+    <p class="take" id="take">Onde os alunos travam no onboarding, quem precisa de contato hoje e quem pode voltar depois de cancelar.</p>
     <div class="hero-actions" id="hero-acoes" hidden></div>
   </header>
 
-  <!-- TELA INICIAL -->
-  <section class="drop" id="drop" aria-labelledby="drop-titulo">
-    <div class="drop-icon" aria-hidden="true">⇪</div>
-    <h2 id="drop-titulo">Arraste aqui a cópia da Matriculas_Pós.xlsx</h2>
-    <p>Ou escolha o arquivo no seu computador. A planilha é lida aqui mesmo no navegador: nenhum dado de aluno é enviado para o GitHub nem para qualquer servidor.</p>
-    <div class="filters" style="justify-content:center">
-      <label class="btn primary" for="arquivo">Escolher planilha</label>
-      <input id="arquivo" type="file" accept=".xlsx,.xls,.xlsm" hidden>
-      <button class="btn" id="btn-demo" type="button">Ver com dados de exemplo</button>
-    </div>
-    <div class="steps">
-      <div class="step"><b><span>1</span>Baixe uma cópia</b><span class="cap">No Excel Online: Arquivo → Salvar como → Baixar uma cópia. A original continua intocada.</span></div>
-      <div class="step"><b><span>2</span>Carregue aqui</b><span class="cap">Arraste o arquivo para este quadro. O painel calcula tudo em segundos.</span></div>
-      <div class="step"><b><span>3</span>Aja pela fila</b><span class="cap">Comece pelos alunos críticos, mande a mensagem pronta e marque o acompanhamento.</span></div>
-    </div>
-    <div class="privacy"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" stroke="currentColor" stroke-width="1.8"/></svg>
-      <span>Os dados ficam só neste navegador, e você pode apagá-los a qualquer momento pelo botão "Apagar dados deste navegador".</span></div>
+  <!-- LOGIN -->
+  <section class="drop login" id="login" aria-labelledby="login-titulo" hidden>
+    <div class="drop-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg></div>
+    <h2 id="login-titulo">Acesso restrito ao time de CS</h2>
+    <p>Entre com o e-mail e a senha cadastrados. Só pessoas autorizadas veem os dados dos alunos.</p>
+    <form class="login-form" id="form-login" autocomplete="on">
+      <label>E-mail<input id="lg-email" type="email" autocomplete="username" required></label>
+      <label>Senha<input id="lg-senha" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit" id="lg-entrar">Entrar</button>
+      <button class="btn sm link" type="button" id="lg-esqueci">Esqueci minha senha</button>
+      <p class="login-msg" id="lg-msg" role="status"></p>
+    </form>
+    <form class="login-form" id="form-senha" hidden>
+      <label>Crie sua nova senha<input id="ns-senha" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button class="btn primary" type="submit">Salvar nova senha</button>
+      <p class="login-msg" id="ns-msg" role="status"></p>
+    </form>
+  </section>
+
+  <section class="drop login" id="carregando" aria-live="polite" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="carregando-txt">Carregando os dados dos alunos…</p>
   </section>
 
   <!-- PAINEL -->
@@ -50,9 +55,9 @@
       <div class="statusbar" id="statusbar" style="grid-column:1/-1">
         <div class="left" id="status-info"></div>
         <div class="right">
-          <label class="btn sm" for="arquivo2">Atualizar planilha</label><input id="arquivo2" type="file" accept=".xlsx,.xls,.xlsm" hidden>
+          <button class="btn sm" id="btn-recarregar" type="button">Atualizar dados</button>
           <button class="btn sm" id="btn-tema" type="button" aria-label="Alternar tema claro e escuro">Claro / escuro</button>
-          <button class="btn sm" id="btn-limpar" type="button">Apagar dados deste navegador</button>
+          <button class="btn sm" id="btn-sair" type="button">Sair</button>
         </div>
       </div>
       <div class="warn-box" id="avisos" hidden style="grid-column:1/-1"></div>
@@ -181,15 +186,14 @@
         <article class="card wide"><h2>Campos que atrapalham o atendimento</h2><p class="note">E-mail fora do formato, WhatsApp sem DDI e DDD completos (12 ou 13 dígitos) e forma de pagamento em branco. Corrigir na planilha original evita contato perdido.</p>
           <div class="scroll"><table class="t" id="tb-qual"><thead><tr><th>Curso</th><th class="num">Registros</th><th class="num">E-mail inválido</th><th class="num">WhatsApp suspeito</th><th class="num">Sem forma de pagamento</th></tr></thead><tbody></tbody></table></div></article>
         <article class="card"><h2>Como a forma de pagamento está registrada</h2><p class="note">Padronizar como "Boleto 18x297,00" ou "Cartão 12x349,70" facilita cobrança e cálculo de multa.</p><div class="hbars" id="ch-pagto"></div></article>
-        <article class="card"><h2>Acompanhamento da equipe</h2><p class="note">As marcações de acompanhamento ficam salvas neste navegador. Para passar para outra pessoa do time, exporte o arquivo e peça para ela importar.</p>
-          <div class="filters"><button class="btn sm" id="ac-exp" type="button">Exportar acompanhamento</button><label class="btn sm" for="ac-imp-file">Importar acompanhamento</label><input id="ac-imp-file" type="file" accept=".json" hidden></div>
+        <article class="card"><h2>Acompanhamento da equipe</h2><p class="note">As marcações (Contatado, Sem resposta, Resolvido, Revertido) ficam salvas na base e aparecem para todas as pessoas autorizadas, em qualquer computador.</p>
           <p class="cap" id="ac-info"></p></article>
       </div>
     </section>
   </div>
 
   <footer class="foot">
-    <div><b>Privacidade.</b> O painel mostra nome, telefone e e-mail de alunos para uso interno do time de CS. Tudo é calculado no seu navegador a partir do arquivo que você carregou; este site não envia nem guarda dados em nenhum servidor.</div>
+    <div><b>Privacidade.</b> O painel mostra nome, telefone e e-mail de alunos para uso interno do time de CS. Os dados ficam na base protegida do Supabase e só aparecem para e-mails autorizados, depois do login. Este site e o repositório no GitHub não guardam dados de alunos.</div>
     <div>Regras de prioridade, mensagens e cursos ficam em <code>assets/js/config.js</code>. Status padronizados: "Ok", "ok" e "OK" contam como concluído. Pendente = em matrícula ou em contrato.</div>
   </footer>
 </div>
@@ -197,10 +201,10 @@
 <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
 <script src="assets/vendor/d3.min.js"></script>
-<script src="assets/vendor/xlsx.full.min.js"></script>
+<script src="assets/vendor/supabase.min.js"></script>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/dados.js"></script>
-<script src="assets/js/demo.js"></script>
+<script src="assets/js/nuvem.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

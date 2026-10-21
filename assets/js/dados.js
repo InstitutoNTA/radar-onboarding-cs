@@ -1,7 +1,7 @@
 /*
  * Radar de Onboarding CS — leitura da planilha e cálculos
  * ---------------------------------------------------------------
- * Tudo roda no navegador: a planilha nunca é enviada para nenhum servidor.
+ * Normaliza os registros (vindos do Supabase ou de uma planilha) e calcula os indicadores.
  */
 (function () {
   const R = window.Radar;
@@ -256,5 +256,5 @@
     return prefixo + base + '~' + c;
   }
 
-  R.util = { norm, toISO, dias, hojeISO, whatsapp, foneFmt, meioPagamento, parcelas, bonusTags, motivoCat };
+  R.util = { norm, txt, toISO, dias, hojeISO, whatsapp, foneFmt, meioPagamento, parcelas, bonusTags, motivoCat, statusPadrao, tipoPadrao, titulo };
 })();

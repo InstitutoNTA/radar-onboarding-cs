@@ -188,3 +188,17 @@ footer.foot { font-size: 12.5px; color: var(--muted); line-height: 1.6; border-t
 .wrap > *, #painel, #painel > *, .grid > *, .page > *, .kpis > * { min-width: 0; }
 .statusbar .left span { overflow-wrap: anywhere; }
 .hero p.take, .hero-actions { min-width: 0; }
+
+/* ---------- login ---------- */
+.login-form { display: grid; gap: 12px; width: min(100%, 360px); text-align: left; }
+.login-form label { display: grid; gap: 6px; font-size: .86rem; font-weight: 600; color: var(--muted); }
+.login-form input { font: inherit; font-size: 1rem; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.login-form input:focus { outline: 2px solid var(--v-indigo); outline-offset: 1px; border-color: transparent; }
+.login-form .btn.primary { justify-content: center; padding: 12px; font-size: 1rem; }
+.btn.link { background: none; border: 0; box-shadow: none; color: var(--v-indigo); text-decoration: underline; justify-self: center; }
+.login-msg { min-height: 1.2em; margin: 0; font-size: .88rem; text-align: center; color: var(--muted); }
+.login-msg.erro { color: var(--v-coral); font-weight: 600; }
+.spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid color-mix(in srgb, var(--v-indigo) 20%, transparent); border-top-color: var(--v-indigo); animation: gira 0.9s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+.drop.login { border-style: solid; border-color: var(--line); background: var(--panel); }

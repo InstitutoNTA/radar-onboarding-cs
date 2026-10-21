@@ -12,7 +12,8 @@
   const dataBR = (s) => { if (!s) return '—'; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; };
   const css = (v) => `var(${v})`;
   const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* */ } } };
-  const K_DADOS = 'radar-cs:dados', K_ACOMP = 'radar-cs:acompanhamento', K_TEMA = 'radar-cs:tema';
+  const K_TEMA = 'radar-cs:tema';
+  const N = R.nuvem;
 
   const STATUS = [['ok', 'Concluído', '--v-mint'], ['em_matricula', 'Em matrícula', '--v-amber'], ['em_contrato', 'Em contrato', '--v-orange'], ['cancelado', 'Cancelado', '--v-coral'], ['outros', 'Outros / sem status', '--v-slate']];
   const PRIO = ['Crítica', 'Alta', 'Média', 'Baixa'];
@@ -32,7 +33,7 @@
   const corCurso = (c) => { const k = cfg.cursos.find((x) => x.nome === c); return css(k ? k.cor : '--v-slate'); };
 
   let A = null; let meta = null; let pagina = 'visao';
-  let acomp = ls.get(K_ACOMP) || {};
+  let acomp = {};
 
   /* ---------- helpers de DOM ---------- */
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -56,51 +57,78 @@
     const novo = atual === 'dark' ? 'light' : 'dark'; aplicaTema(novo); ls.set(K_TEMA, novo); desenhar();
   });
 
-  /* ---------- carregar planilha ---------- */
-  function lerArquivo(file) {
-    if (!file) return;
-    const fr = new FileReader();
-    fr.onload = () => {
-      try {
-        const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
-        const bruto = R.lerPlanilha(wb);
-        if (!bruto.matriculas.length) { toast('Não encontrei matrículas nesse arquivo. Confira se é a planilha Matriculas_Pós.xlsx.'); return; }
-        iniciar(bruto, { arquivo: file.name, carregadoEm: new Date().toISOString(), demo: false }, true);
-        toast(`Planilha carregada: ${nf.format(bruto.matriculas.length)} matrículas e ${nf.format(bruto.cancelamentos.length)} cancelamentos.`);
-      } catch (e) { console.error(e); toast('Não consegui ler esse arquivo. Envie um .xlsx exportado do Excel.'); }
-    };
-    fr.readAsArrayBuffer(file);
+  /* ---------- login e carga da base ---------- */
+  const telas = (qual) => { ['login', 'carregando', 'painel'].forEach((id) => { $(id).hidden = id !== qual; }); $('hero-acoes').hidden = qual !== 'painel'; };
+  const aviso = (id, t, erro) => { const e = $(id); e.textContent = t || ''; e.classList.toggle('erro', !!erro); };
+  const erroLogin = (e) => {
+    const m = String((e && e.message) || e || '');
+    if (/invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
+    if (/email not confirmed/i.test(m)) return 'Este e-mail ainda não foi confirmado. Fale com o administrador do painel.';
+    if (/rate limit|too many/i.test(m)) return 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.';
+    if (/failed to fetch|network/i.test(m)) return 'Sem conexão com a base. Verifique a internet e tente de novo.';
+    return 'Não foi possível entrar: ' + m;
+  };
+
+  async function carregarBase(aviso) {
+    telas('carregando'); $('carregando-txt').textContent = 'Carregando os dados dos alunos…';
+    try {
+      if (!(await N.autorizado())) {
+        await N.sair(); telas('login');
+        aviso('lg-msg', 'Seu login funcionou, mas este e-mail não está autorizado a ver os dados. Peça a liberação ao administrador do painel.', true); return;
+      }
+      const [bruto, ac] = await Promise.all([N.carregar(), N.acompanhamento()]);
+      acomp = ac;
+      if (!bruto.matriculas.length) { telas('login'); aviso('lg-msg', 'A base está vazia: nenhuma matrícula encontrada.', true); return; }
+      iniciar(bruto, { arquivo: 'Base Supabase', carregadoEm: new Date().toISOString(), atualizadoEm: bruto.atualizado });
+      if (aviso) toast(`Dados atualizados: ${nf.format(bruto.matriculas.length)} matrículas e ${nf.format(bruto.cancelamentos.length)} cancelamentos.`);
+    } catch (e) {
+      console.error(e); telas('login'); aviso('lg-msg', erroLogin(e), true);
+    }
   }
-  $('arquivo').addEventListener('change', (e) => { lerArquivo(e.target.files[0]); e.target.value = ''; });
-  $('arquivo2').addEventListener('change', (e) => { lerArquivo(e.target.files[0]); e.target.value = ''; });
-  const drop = $('drop');
-  ['dragenter', 'dragover'].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); if (t === 'dragleave' && e.target !== document.documentElement && e.relatedTarget) return; drop.classList.remove('over'); }));
-  document.addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) lerArquivo(f); });
-  $('btn-demo').addEventListener('click', () => iniciar(R.gerarDemo(U.hojeISO()), { arquivo: 'dados de exemplo', carregadoEm: new Date().toISOString(), demo: true }, false));
-  $('btn-limpar').addEventListener('click', () => {
-    ls.del(K_DADOS); A = null; meta = null; $('painel').hidden = true; $('drop').hidden = false; $('hero-acoes').hidden = true; $('estado-dados').hidden = true;
-    $('take').textContent = 'Dados apagados deste navegador. Carregue a cópia da planilha para ver o painel de novo.'; toast('Dados dos alunos apagados deste navegador. O acompanhamento continua salvo.');
+
+  $('form-login').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); aviso('lg-msg', 'Entrando…'); $('lg-entrar').disabled = true;
+    try { await N.entrar($('lg-email').value, $('lg-senha').value); $('lg-senha').value = ''; aviso('lg-msg', ''); await carregarBase(false); }
+    catch (e) { aviso('lg-msg', erroLogin(e), true); }
+    finally { $('lg-entrar').disabled = false; }
+  });
+  $('lg-esqueci').addEventListener('click', async () => {
+    const email = $('lg-email').value.trim();
+    if (!email) { aviso('lg-msg', 'Digite seu e-mail acima e clique de novo em "Esqueci minha senha".', true); return; }
+    try { await N.redefinirSenha(email); aviso('lg-msg', 'Se o e-mail estiver cadastrado, chegará um link para criar uma nova senha.'); }
+    catch (e) { aviso('lg-msg', erroLogin(e), true); }
+  });
+  $('form-senha').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try { await N.novaSenha($('ns-senha').value); $('ns-senha').value = ''; $('form-senha').hidden = true; $('form-login').hidden = false; history.replaceState(null, '', location.pathname); await carregarBase(false); }
+    catch (e) { aviso('ns-msg', erroLogin(e), true); }
+  });
+  $('btn-recarregar').addEventListener('click', () => carregarBase(true));
+  $('btn-sair').addEventListener('click', async () => {
+    await N.sair(); A = null; meta = null; acomp = {}; $('estado-dados').hidden = true; telas('login'); aviso('lg-msg', 'Você saiu do painel.');
   });
 
-  function iniciar(bruto, m, salvar) {
+  function iniciar(bruto, m) {
     meta = m; meta.bruto = bruto;
     A = R.analisar(bruto, U.hojeISO());
-    if (salvar) { if (!ls.set(K_DADOS, { meta: { arquivo: m.arquivo, carregadoEm: m.carregadoEm }, bruto })) toast('Não deu para guardar a planilha neste navegador; recarregue o arquivo na próxima vez.'); }
-    $('drop').hidden = true; $('painel').hidden = false; $('hero-acoes').hidden = false;
+    telas('painel');
     abrir(location.hash.slice(1) || pagina, false);
   }
 
-  /* ---------- acompanhamento (salvo neste navegador) ---------- */
+  /* ---------- acompanhamento (compartilhado na base) ---------- */
   const stAtual = (k) => (acomp[k] && acomp[k].status) || 'Não contatado';
   function acompCell(chave, opts, redesenha) {
     const td = el('td', 'nw'); const sel = el('select', 'acomp'); sel.setAttribute('aria-label', 'Acompanhamento');
     opts.forEach((o) => sel.add(new Option(o, o))); const st = stAtual(chave); sel.value = opts.includes(st) ? st : opts[0]; sel.dataset.st = sel.value;
     const metaEl = el('div', 'acomp-meta', acomp[chave] ? 'em ' + new Date(acomp[chave].em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
     sel.addEventListener('change', () => {
-      if (sel.value === opts[0]) delete acomp[chave]; else acomp[chave] = { status: sel.value, em: new Date().toISOString() };
-      if (!ls.set(K_ACOMP, acomp)) toast('Não foi possível salvar o acompanhamento neste navegador.');
+      const antes = acomp[chave]; const valor = sel.value;
+      if (valor === opts[0]) delete acomp[chave]; else acomp[chave] = { status: valor, em: new Date().toISOString() };
       redesenha();
+      (valor === opts[0] ? N.desmarcar(chave) : N.marcar(chave, valor)).catch((e) => {
+        console.error(e); if (antes) acomp[chave] = antes; else delete acomp[chave]; redesenha();
+        toast('Não foi possível salvar a marcação. Verifique a conexão e tente de novo.');
+      });
     });
     td.append(sel, metaEl); return td;
   }
@@ -112,15 +140,6 @@
     const bar = el('div', 'progress-bar'); opts.slice(1).forEach((o) => { if (!cont[o]) return; const d = el('div'); d.style.width = (cont[o] / rows.length * 100) + '%'; d.style.background = COR_ACOMP[o]; d.title = `${o}: ${cont[o]}`; bar.appendChild(d); });
     box.replaceChildren(top, bar);
   }
-  $('ac-exp').addEventListener('click', () => baixar(`acompanhamento-radar-${U.hojeISO()}.json`, JSON.stringify({ tipo: 'radar-cs-acompanhamento', exportadoEm: new Date().toISOString(), itens: acomp }, null, 1), 'application/json'));
-  $('ac-imp-file').addEventListener('change', (e) => {
-    const f = e.target.files[0]; if (!f) return; const fr = new FileReader();
-    fr.onload = () => { try { const j = JSON.parse(fr.result); const itens = j && j.itens; if (!itens || typeof itens !== 'object') throw 0; let n = 0;
-      Object.entries(itens).forEach(([k, v]) => { if (!v || typeof v.status !== 'string') return; if (!acomp[k] || String(v.em) > String(acomp[k].em)) { acomp[k] = { status: String(v.status).slice(0, 40), em: String(v.em || new Date().toISOString()) }; n++; } });
-      ls.set(K_ACOMP, acomp); toast(`${nf.format(n)} marcações importadas.`); desenhar(); } catch (err) { toast('Esse arquivo não é um acompanhamento exportado pelo Radar.'); } };
-    fr.readAsText(f); e.target.value = '';
-  });
-
   /* ---------- exportar CSV ---------- */
   function baixar(nome, conteudo, tipo) { const b = new Blob([conteudo], { type: tipo }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = nome; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
   function csv(rows, cols) { const esc = (v) => { const s = v == null ? '' : String(v); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -151,8 +170,8 @@
 
   /* ---------- cabeçalho ---------- */
   function cabecalho() {
-    const r = A.resumo; const est = $('estado-dados'); est.hidden = false; est.classList.toggle('demo', !!meta.demo);
-    est.textContent = meta.demo ? 'Dados de exemplo (fictícios)' : `Base de ${dataBR(r.hoje)}`;
+    const r = A.resumo; const est = $('estado-dados'); est.hidden = false; est.classList.remove('demo');
+    est.textContent = 'Dados reais · acesso restrito';
     const t = $('take'); t.replaceChildren();
     const b = (x) => el('b', null, x);
     const pior = A.piorCurso; const bol = A.pagRisco.find((x) => x.meio === 'Boleto');
@@ -167,7 +186,8 @@
     rv.addEventListener('click', () => abrir('reversao', true)); acoes.appendChild(rv);
     $('n-fila').textContent = nf.format(A.fila.length); $('n-rev').textContent = nf.format(A.reversao.length);
     const info = $('status-info'); info.replaceChildren();
-    info.append(el('span', null, `Arquivo: ${meta.arquivo}`), el('span', null, `Carregado em ${new Date(meta.carregadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`), el('span', null, `${nf.format(r.total)} matrículas · ${nf.format(r.cancelamentos)} cancelamentos`));
+    const fdt = (t) => new Date(t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    info.append(el('span', null, meta.atualizadoEm ? `Base importada em ${fdt(meta.atualizadoEm)}` : 'Base Supabase'), el('span', null, `Aberto em ${fdt(meta.carregadoEm)}`), el('span', null, `${nf.format(r.total)} matrículas · ${nf.format(r.cancelamentos)} cancelamentos`));
     const av = meta.bruto.avisos || []; $('avisos').hidden = !av.length; $('avisos').textContent = av.join(' ');
     $('fila-regra').textContent = `Ordenada da prioridade crítica para a baixa e, dentro dela, de quem está parado há mais tempo. Até ${cfg.prioridade.baixaAte} dias desde a venda é baixa, até ${cfg.prioridade.mediaAte} média, até ${cfg.prioridade.altaAte} alta e acima disso crítica. Contratos sem assinatura há mais de ${cfg.prioridade.contratoCriticoApos} dias também são críticos. O botão de WhatsApp abre a conversa com uma mensagem pronta para você ajustar antes de enviar.`;
     $('rev-regra').textContent = `Ordenada pela janela: recentes (até ${cfg.janelaReversao.recenteAte} dias desde o cancelamento), intermediárias (até ${cfg.janelaReversao.intermediariaAte}) e antigas. Só aparece a categoria do motivo, nunca o texto que o aluno escreveu.`;
@@ -348,7 +368,7 @@
     $('tb-qual').tBodies[0].replaceChildren(...A.qualidade.map((r) => { const tr = el('tr'); tr.append(el('td', 'nome', r.curso), el('td', 'num', nf.format(r.total)));
       ['emailInvalido', 'foneSuspeito', 'semPagamento'].forEach((k) => { const td = el('td', 'num', nf.format(r[k])); if (r[k] / r.total > 0.1) { td.style.color = 'var(--v-coral)'; td.style.fontWeight = 700; } else if (r[k] > 0) td.style.color = 'var(--v-orange)'; tr.appendChild(td); }); return tr; }));
     hbars($('ch-pagto'), A.formaPagamento, (r) => r.forma, (r) => r.n, (r) => MEIO_COR[r.forma]);
-    $('ac-info').textContent = `${nf.format(Object.keys(acomp).length)} alunos com acompanhamento marcado neste navegador.`;
+    $('ac-info').textContent = `${nf.format(Object.keys(acomp).length)} alunos com acompanhamento marcado pelo time.`;
   }
 
   const PAGINAS = { visao: pgVisao, fila: pgFila, reversao: pgReversao, gargalos: pgGargalos, pagamentos: pgPagamentos, comercial: pgComercial, cancelamentos: pgCancelamentos, qualidade: pgQualidade };
@@ -363,10 +383,14 @@
   }
   tabs.forEach((t) => t.addEventListener('click', () => abrir(t.dataset.page, true)));
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (pagina === 'visao' || pagina === 'pagamentos' || pagina === 'cancelamentos') desenhar(); }, 150); });
-  addEventListener('storage', (e) => { if (e.key === K_ACOMP) { acomp = ls.get(K_ACOMP) || {}; desenhar(); } });
 
   /* ---------- inicialização ---------- */
-  const params = new URLSearchParams(location.search);
-  if (params.has('demo')) iniciar(R.gerarDemo(U.hojeISO()), { arquivo: 'dados de exemplo', carregadoEm: new Date().toISOString(), demo: true }, false);
-  else { const salvo = ls.get(K_DADOS); if (salvo && salvo.bruto && salvo.bruto.matriculas) iniciar(salvo.bruto, { ...salvo.meta, demo: false }, false); }
+  N.aoMudarSessao((ev) => {
+    if (ev === 'PASSWORD_RECOVERY') { telas('login'); $('form-login').hidden = true; $('form-senha').hidden = false; aviso('ns-msg', 'Digite a nova senha (mínimo de 8 caracteres).'); }
+  });
+  (async () => {
+    if (/type=recovery/.test(location.hash)) { telas('login'); return; }
+    const s = await N.sessao();
+    if (s) carregarBase(false); else telas('login');
+  })();
 })();
