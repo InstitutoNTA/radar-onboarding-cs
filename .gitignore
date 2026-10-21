@@ -1,0 +1,8 @@
+# Nunca versionar dados de alunos
+*.xlsx
+*.xls
+*.csv
+*.json
+dados/
+.DS_Store
+node_modules/

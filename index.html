@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar de Onboarding CS · Instituto NTA</title>
+<meta name="description" content="Painel do time de Customer Success: onboarding, fila de ação, reversão de cancelamentos e pagamentos das pós-graduações. A planilha é lida no seu navegador e nenhum dado sai do seu computador.">
+<meta name="theme-color" content="#4338CA">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="wrap" id="app">
+
+  <header class="hero" id="topo">
+    <div class="hero-top">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Instituto NTA · Customer Success</span></div>
+      <span class="pill-live" id="estado-dados" hidden></span>
+    </div>
+    <h1>Radar de Onboarding CS</h1>
+    <p class="take" id="take">Carregue a cópia da planilha de matrículas para ver onde os alunos travam no onboarding, quem precisa de contato hoje e quem pode voltar depois de cancelar.</p>
+    <div class="hero-actions" id="hero-acoes" hidden></div>
+  </header>
+
+  <!-- TELA INICIAL -->
+  <section class="drop" id="drop" aria-labelledby="drop-titulo">
+    <div class="drop-icon" aria-hidden="true">⇪</div>
+    <h2 id="drop-titulo">Arraste aqui a cópia da Matriculas_Pós.xlsx</h2>
+    <p>Ou escolha o arquivo no seu computador. A planilha é lida aqui mesmo no navegador: nenhum dado de aluno é enviado para o GitHub nem para qualquer servidor.</p>
+    <div class="filters" style="justify-content:center">
+      <label class="btn primary" for="arquivo">Escolher planilha</label>
+      <input id="arquivo" type="file" accept=".xlsx,.xls,.xlsm" hidden>
+      <button class="btn" id="btn-demo" type="button">Ver com dados de exemplo</button>
+    </div>
+    <div class="steps">
+      <div class="step"><b><span>1</span>Baixe uma cópia</b><span class="cap">No Excel Online: Arquivo → Salvar como → Baixar uma cópia. A original continua intocada.</span></div>
+      <div class="step"><b><span>2</span>Carregue aqui</b><span class="cap">Arraste o arquivo para este quadro. O painel calcula tudo em segundos.</span></div>
+      <div class="step"><b><span>3</span>Aja pela fila</b><span class="cap">Comece pelos alunos críticos, mande a mensagem pronta e marque o acompanhamento.</span></div>
+    </div>
+    <div class="privacy"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Os dados ficam só neste navegador, e você pode apagá-los a qualquer momento pelo botão "Apagar dados deste navegador".</span></div>
+  </section>
+
+  <!-- PAINEL -->
+  <div id="painel" hidden>
+    <div class="grid" style="gap:16px">
+      <div class="statusbar" id="statusbar" style="grid-column:1/-1">
+        <div class="left" id="status-info"></div>
+        <div class="right">
+          <label class="btn sm" for="arquivo2">Atualizar planilha</label><input id="arquivo2" type="file" accept=".xlsx,.xls,.xlsm" hidden>
+          <button class="btn sm" id="btn-tema" type="button" aria-label="Alternar tema claro e escuro">Claro / escuro</button>
+          <button class="btn sm" id="btn-limpar" type="button">Apagar dados deste navegador</button>
+        </div>
+      </div>
+      <div class="warn-box" id="avisos" hidden style="grid-column:1/-1"></div>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Seções do painel" style="margin-top:16px">
+      <button class="tab" role="tab" id="tab-visao" data-page="visao" aria-selected="true">Visão geral</button>
+      <button class="tab" role="tab" id="tab-fila" data-page="fila" aria-selected="false">Fila de ação <span class="n" id="n-fila"></span></button>
+      <button class="tab" role="tab" id="tab-reversao" data-page="reversao" aria-selected="false">Reversão <span class="n" id="n-rev"></span></button>
+      <button class="tab" role="tab" id="tab-gargalos" data-page="gargalos" aria-selected="false">Gargalos</button>
+      <button class="tab" role="tab" id="tab-pagamentos" data-page="pagamentos" aria-selected="false">Pagamentos</button>
+      <button class="tab" role="tab" id="tab-comercial" data-page="comercial" aria-selected="false">Comercial</button>
+      <button class="tab" role="tab" id="tab-cancelamentos" data-page="cancelamentos" aria-selected="false">Cancelamentos</button>
+      <button class="tab" role="tab" id="tab-qualidade" data-page="qualidade" aria-selected="false">Qualidade</button>
+    </nav>
+
+    <!-- VISÃO GERAL -->
+    <section class="page" id="visao" role="tabpanel" aria-labelledby="tab-visao" style="margin-top:20px">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid">
+        <article class="card"><h2>Situação do onboarding por curso</h2><p class="note">Cada barra soma 100% da turma. As cores quentes mostram onde o aluno travou.</p><div class="legend" id="leg-status"></div><div class="stack" id="ch-status"></div></article>
+        <article class="card"><h2>Novas matrículas por mês</h2><p class="note">Data da venda, empilhada por curso. O mês atual ainda está em andamento.</p><div class="legend" id="leg-cursos"></div><div class="chart" id="ch-vendas"></div></article>
+      </div>
+    </section>
+
+    <!-- FILA -->
+    <section class="page" id="fila" role="tabpanel" aria-labelledby="tab-fila" hidden style="margin-top:20px">
+      <article class="card wide">
+        <h2>Fila de ação: alunos com onboarding pendente</h2>
+        <p class="note" id="fila-regra"></p>
+        <div class="progress" id="f-progress"></div>
+        <div class="filters" id="f-prio" role="group" aria-label="Filtrar por prioridade"></div>
+        <div class="filters">
+          <select class="select" id="f-curso" aria-label="Curso"></select>
+          <select class="select" id="f-status" aria-label="Status"><option value="">Todos os status</option><option>Em matrícula</option><option>Em contrato</option></select>
+          <select class="select" id="f-meio" aria-label="Meio de pagamento"></select>
+          <select class="select" id="f-acomp" aria-label="Acompanhamento"><option value="">Todo acompanhamento</option><option>Não contatado</option><option>Contatado</option><option>Sem resposta</option><option>Resolvido</option></select>
+          <input class="search" id="f-busca" type="search" placeholder="Buscar aluno, e-mail, vendedor ou bônus" aria-label="Buscar">
+          <button class="btn sm" id="f-csv" type="button">Exportar lista (CSV)</button>
+          <span class="count" id="f-count"></span>
+        </div>
+        <div class="tablebox">
+          <table class="t" id="tb-fila"><thead><tr>
+            <th><button data-k="prioridade">Prioridade</button></th><th>Acompanhamento</th><th><button data-k="nome">Aluno</button></th><th>Contato</th><th>Ação sugerida</th>
+            <th><button data-k="curso">Curso</button></th><th><button data-k="status">Status</button></th><th class="num"><button data-k="dias">Dias parado</button></th>
+            <th>WhatsApp</th><th>E-mail</th><th><button data-k="vendedor">Vendedor</button></th><th>Pagamento</th><th>Bônus contratados</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </article>
+    </section>
+
+    <!-- REVERSÃO -->
+    <section class="page" id="reversao" role="tabpanel" aria-labelledby="tab-reversao" hidden style="margin-top:20px">
+      <div class="kpis" id="rev-kpis"></div>
+      <div class="grid">
+        <article class="card"><h2>Arsenal de bônus para reversão</h2><p class="note">Quantos alunos da base têm cada bônus (barra colorida) e quantos dos pendentes têm o mesmo bônus (linha vermelha). Use o que o aluno já ganhou como argumento antes de oferecer algo novo.</p><div class="hbars" id="ch-arsenal"></div></article>
+        <article class="card"><h2>Roteiro de reversão por motivo</h2><p class="note">A ação sugerida em cada linha da lista segue este roteiro, já com os bônus do aluno no fim. Passe o mouse para ver o roteiro completo.</p><div class="hbars" id="ch-roteiro"></div></article>
+      </div>
+      <article class="card wide">
+        <h2>Lista de reversão</h2>
+        <p class="note" id="rev-regra"></p>
+        <div class="progress" id="r-progress"></div>
+        <div class="filters" id="r-janela" role="group" aria-label="Filtrar por janela"></div>
+        <div class="filters">
+          <select class="select" id="r-motivo" aria-label="Motivo"></select>
+          <select class="select" id="r-acomp" aria-label="Acompanhamento da reversão"><option value="">Todo acompanhamento</option><option>Não contatado</option><option>Contatado</option><option>Sem resposta</option><option>Revertido</option><option>Não quer voltar</option></select>
+          <input class="search" id="r-busca" type="search" placeholder="Buscar aluno, curso ou bônus" aria-label="Buscar na lista de reversão">
+          <button class="btn sm" id="r-csv" type="button">Exportar lista (CSV)</button>
+          <span class="count" id="r-count"></span>
+        </div>
+        <div class="tablebox">
+          <table class="t" id="tb-rev"><thead><tr>
+            <th>Janela</th><th>Acompanhamento</th><th>Aluno</th><th>Contato</th><th>Ação de reversão</th><th>Motivo</th><th>Curso</th>
+            <th class="num">Dias desde o cancelamento</th><th>WhatsApp</th><th>Bônus que tinha</th><th>Pagamento</th><th>Vendedor</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </article>
+    </section>
+
+    <!-- GARGALOS -->
+    <section class="page" id="gargalos" role="tabpanel" aria-labelledby="tab-gargalos" hidden style="margin-top:20px">
+      <article class="card wide"><h2>Há quanto tempo os pendentes estão parados</h2><p class="note">Alunos em matrícula ou em contrato, contados pelos dias desde a venda. Quanto mais intensa a cor, maior o acúmulo. Da esquerda para a direita, o problema fica mais antigo.</p><div class="scroll"><table class="heat" id="ch-heat"></table></div></article>
+      <article class="card wide"><h2>Ranking de pendência por curso</h2><p class="note">Clique no título de uma coluna para reordenar.</p>
+        <div class="scroll"><table class="t" id="tb-cursos"><thead><tr>
+          <th><button data-k="curso">Curso</button></th><th class="num"><button data-k="total">Turma</button></th><th class="num"><button data-k="pendentes">Pendentes</button></th>
+          <th class="num"><button data-k="taxa">Taxa de pendência</button></th><th class="num"><button data-k="mais30">+30 dias</button></th><th class="num"><button data-k="mais90">+90 dias</button></th><th><button data-k="situacao">Situação</button></th>
+        </tr></thead><tbody></tbody></table></div>
+      </article>
+    </section>
+
+    <!-- PAGAMENTOS -->
+    <section class="page" id="pagamentos" role="tabpanel" aria-labelledby="tab-pagamentos" hidden style="margin-top:20px">
+      <div class="insight" id="pag-insight"></div>
+      <div class="grid">
+        <article class="card"><h2>Pendência por meio de pagamento</h2><p class="note">Percentual de alunos de cada meio que ainda não concluíram o onboarding.</p><div class="hbars" id="ch-risco"></div></article>
+        <article class="card"><h2>Em quantas vezes os alunos parcelam</h2><p class="note">Lido do texto da forma de pagamento, como "18x297,00". Registros sem o número de parcelas ficam de fora.</p><div class="chart" id="ch-parcelas"></div></article>
+        <article class="card wide"><h2>Meio de pagamento por curso</h2><p class="note">"Parcelado (sem meio)" traz só as parcelas, sem dizer se é cartão ou boleto. Padronizar esse campo na planilha deixa a análise completa.</p><div class="legend" id="leg-meio"></div><div class="stack" id="ch-meio-curso"></div></article>
+        <article class="card wide"><h2>Ticket por curso</h2><p class="note">Estimativa: valor da parcela vezes o número de parcelas. Não inclui entradas nem descontos negociados por fora.</p>
+          <div class="scroll"><table class="t" id="tb-valor"><thead><tr><th>Curso</th><th class="num">Contratos lidos</th><th class="num">Parcelas em média</th><th class="num">Parcela média</th><th class="num">Valor total médio</th></tr></thead><tbody></tbody></table></div></article>
+      </div>
+    </section>
+
+    <!-- COMERCIAL -->
+    <section class="page" id="comercial" role="tabpanel" aria-labelledby="tab-comercial" hidden style="margin-top:20px">
+      <article class="card wide"><h2>Onboarding pendente por vendedor</h2><p class="note" id="vend-regra"></p>
+        <div class="tablebox"><table class="t" id="tb-vend"><thead><tr>
+          <th><button data-k="vendedor">Vendedor</button></th><th class="num"><button data-k="total">Matrículas</button></th><th class="num"><button data-k="ok">Concluídas</button></th>
+          <th class="num"><button data-k="pendentes">Pendentes</button></th><th class="num"><button data-k="cancelados">Canceladas</button></th><th class="num"><button data-k="taxa">Taxa de pendência</button></th>
+        </tr></thead><tbody></tbody></table></div>
+      </article>
+    </section>
+
+    <!-- CANCELAMENTOS -->
+    <section class="page" id="cancelamentos" role="tabpanel" aria-labelledby="tab-cancelamentos" hidden style="margin-top:20px">
+      <div class="grid">
+        <article class="card"><h2>Por que os alunos cancelam</h2><p class="note">Motivos agrupados a partir do texto registrado. Registrar o motivo em todo cancelamento melhora a reversão.</p><div class="hbars" id="ch-motivos"></div></article>
+        <article class="card"><h2>Quando o aluno desiste</h2><p class="note">Dias entre o início e o cancelamento. Os primeiros 90 dias são a janela crítica de retenção.</p><div class="chart" id="ch-dias"></div></article>
+        <article class="card"><h2>Cancelamentos por mês</h2><p class="note">Data do cancelamento. O mês com mais cancelamentos aparece em coral.</p><div class="chart" id="ch-cmes"></div></article>
+        <article class="card"><h2>Cancelamentos por curso</h2><p class="note">Nome do curso como está na aba de cancelamentos.</p><div class="hbars" id="ch-ccurso"></div></article>
+      </div>
+    </section>
+
+    <!-- QUALIDADE -->
+    <section class="page" id="qualidade" role="tabpanel" aria-labelledby="tab-qualidade" hidden style="margin-top:20px">
+      <div class="grid">
+        <article class="card wide"><h2>Campos que atrapalham o atendimento</h2><p class="note">E-mail fora do formato, WhatsApp sem DDI e DDD completos (12 ou 13 dígitos) e forma de pagamento em branco. Corrigir na planilha original evita contato perdido.</p>
+          <div class="scroll"><table class="t" id="tb-qual"><thead><tr><th>Curso</th><th class="num">Registros</th><th class="num">E-mail inválido</th><th class="num">WhatsApp suspeito</th><th class="num">Sem forma de pagamento</th></tr></thead><tbody></tbody></table></div></article>
+        <article class="card"><h2>Como a forma de pagamento está registrada</h2><p class="note">Padronizar como "Boleto 18x297,00" ou "Cartão 12x349,70" facilita cobrança e cálculo de multa.</p><div class="hbars" id="ch-pagto"></div></article>
+        <article class="card"><h2>Acompanhamento da equipe</h2><p class="note">As marcações de acompanhamento ficam salvas neste navegador. Para passar para outra pessoa do time, exporte o arquivo e peça para ela importar.</p>
+          <div class="filters"><button class="btn sm" id="ac-exp" type="button">Exportar acompanhamento</button><label class="btn sm" for="ac-imp-file">Importar acompanhamento</label><input id="ac-imp-file" type="file" accept=".json" hidden></div>
+          <p class="cap" id="ac-info"></p></article>
+      </div>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <div><b>Privacidade.</b> O painel mostra nome, telefone e e-mail de alunos para uso interno do time de CS. Tudo é calculado no seu navegador a partir do arquivo que você carregou; este site não envia nem guarda dados em nenhum servidor.</div>
+    <div>Regras de prioridade, mensagens e cursos ficam em <code>assets/js/config.js</code>. Status padronizados: "Ok", "ok" e "OK" contam como concluído. Pendente = em matrícula ou em contrato.</div>
+  </footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
+
+<script src="assets/vendor/d3.min.js"></script>
+<script src="assets/vendor/xlsx.full.min.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/dados.js"></script>
+<script src="assets/js/demo.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
